@@ -1,0 +1,22 @@
+http:
+  routers:
+    docs-router:
+      rule: PathPrefix(`/api/v1/docs`)
+      service: docs-service
+      middlewares:
+        - swagger
+
+  services:
+    docs-service:
+      loadBalancer:
+        servers:
+          - url: http://whoami
+  
+  middlewares:
+    swagger:
+      plugin:
+        swagger-ring:
+          path: /api/v1/docs
+          docs:
+            - path: http://service1:3000/swagger.yaml
+            - path: http://service2:3000/swagger.yaml

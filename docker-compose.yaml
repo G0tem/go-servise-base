@@ -1,0 +1,184 @@
+services:
+  local-mongo-db:
+    image: mongo:8-noble
+    container_name: mongo-db-container
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+    ports:
+      - "${MONGO_PORT}:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })", "--quiet"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - local-mongo-db_data:/data/db
+    networks:
+      - local-network
+    # restart: unless-stopped
+
+  local-message-broker:
+    container_name: local-message-broker-container
+    image: rabbitmq:3.13-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST}
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+    volumes:
+      - local-message-broker_data:/var/lib/rabbitmq
+    networks:
+      - local-network
+    # restart: unless-stopped
+
+  local-postgres-db:
+    container_name: postgres-db-container
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    networks:
+      - local-network
+    volumes:
+      - local-postgres-db_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    # restart: unless-stopped
+
+  local-redis-server:
+    container_name: redis-server-container
+    restart: always
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - local-redis-server_data:/data
+    command: redis-server --appendonly no --save "" --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # restart: unless-stopped
+
+  local-mongo-express:
+    image: mongo-express
+    container_name: wb-mongo-express-container
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_USER}
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_PASSWORD}
+      - ME_CONFIG_MONGODB_SERVER=local-mongo-db
+      - ME_CONFIG_MONGODB_PORT=${MONGO_PORT}
+      - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
+      - ME_CONFIG_BASICAUTH_USERNAME=${MONGO_EXPRESS_USER}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGO_EXPRESS_PASSWORD}
+      - ME_CONFIG_MONGODB_URL=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@local-mongo-db:${MONGO_PORT}/admin
+    ports:
+      - "${MONGO_EXPRESS_PORT}:8081"
+    depends_on:
+      local-mongo-db:
+        condition: service_healthy
+    networks:
+      - local-network
+    # restart: unless-stopped
+
+  local-traefik:
+    image: traefik:latest
+    container_name: local-traefik-container
+    command:
+      # configuration folder
+      - --providers.file.directory=/config
+      - --providers.file.watch=true
+      # plugin
+      - --experimental.plugins.swagger-ring.modulename=github.com/usalko/swagger-ring
+      - --experimental.plugins.swagger-ring.version=v0.1.10
+    volumes:
+      - ./swagger-ring-config.yaml:/config/swagger-ring-config.yaml
+    # command:
+    #   # configuration folder
+    #   - --providers.file.directory=/config
+    #   - --providers.file.watch=true
+    #   # plugin
+    #   - --experimental.plugins.swagger-ring.modulename=github.com/usalko/swagger-ring
+    #   - --experimental.plugins.swagger-ring.version=v0.1.10
+    #   # было
+    #   - --api.dashboard=true
+    #   - --api.debug=true
+    #   # Включить Dashboard (только для разработки!)
+    #   - --api.insecure=true
+    #   # Включить автоматическое обнаружение Docker-сервисов
+    #   - --providers.docker=true
+    #   - --providers.file.directory=/config
+    #   - --providers.file.watch=true
+    #   # Включить конфигурацию для передачи массива ссылок swagger-ring plugin
+    #   - --providers.file.directory=/config
+    #   - --providers.file.watch=true
+    #   # Логи для отладки
+    #   - --log.level=TRACEdd
+    #   - --accesslog=true
+    #   - --log.maxsize=1
+    #   # Только явно разрешённые сервисы
+    #   - --providers.docker.exposedbydefault=false
+    #   # Основной HTTP
+    #   - --entrypoints.web.address=:80
+    #   - --entrypoints.websecure.address=:443
+    #   # Enable ACME (Let’s Encrypt) with HTTP challenge
+    #   - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+    #   - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+    #   - --certificatesresolvers.letsencrypt.acme.email=root@mail.ru
+    #   - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock
+    #   - ./swagger-ring-config.yaml:/config/swagger-ring-config.yaml
+    ports:
+      - "443:443"
+      - "${HTTP_PORT_EXT:-80}:80"    # Balancer port
+      - "${HTTP_PORT_EXT_TA:-8090}:8080"  # Traefik dashboard
+    networks:
+      - local-network
+    # restart: unless-stopped
+
+  whoami:
+    image: traefik/whoami
+    # restart: unless-stopped
+
+  local-pgadmin:
+    image: dpage/pgadmin4
+    container_name: wb-pgadmin-container
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@gmail.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_LISTEN_ADDRESS: 0.0.0.0
+      PGADMIN_LISTEN_PORT: 5433
+    ports:
+      - "5433:5433"
+    volumes:
+      - local-pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      local-postgres-db:
+        condition: service_healthy
+    networks:
+      - local-network
+    # restart: unless-stopped
+
+volumes:
+  local-mongo-db_data:
+  local-message-broker_data:
+  local-postgres-db_data:
+  local-redis-server_data:
+  local-pgadmin_data:
+
+networks:
+  local-network:
+    driver: bridge 
