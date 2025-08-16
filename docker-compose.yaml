@@ -20,7 +20,7 @@ services:
     # restart: unless-stopped
 
   local-message-broker:
-    container_name: local-message-broker-container
+    container_name: message-broker-container
     image: rabbitmq:3.13-management
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
@@ -74,7 +74,7 @@ services:
 
   local-mongo-express:
     image: mongo-express
-    container_name: wb-mongo-express-container
+    container_name: mongo-express-container
     environment:
       - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_USER}
       - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_PASSWORD}
@@ -95,6 +95,7 @@ services:
 
   traefik:
     image: traefik:latest
+    container_name: traefik-container
     restart: unless-stopped
     command:
       - --api.dashboard=true
@@ -120,9 +121,12 @@ services:
       - "${HTTP_PORT_EXT_TA:-8090}:8080"  # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - local-network
 
   whoami:
     image: traefik/whoami
+    container_name: whoami-container
     labels:
       - "a=streaming"
       - "traefik.enable=true"
@@ -133,6 +137,8 @@ services:
       - "traefik.http.services.docs-service.loadBalancer.server.url=http://whoami"
       - "traefik.http.middlewares.swagger.plugin.swagger-ring.path=/api/v1/docs"
       - "traefik.http.middlewares.swagger.plugin.swagger-ring.docs[0].path=http://auth-service:${HTTP_PORT:-8002}/api/v1/docs/swagger.yaml"
+    networks:
+      - local-network
 
 volumes:
   local-mongo-db_data:
