@@ -1,0 +1,24 @@
+http:
+  routers:
+    docs-router:
+      rule: PathPrefix(`/api/v1/docs`)
+      entryPoints:
+        - web
+      service: noop@internal
+      middlewares:
+        - swagger
+
+  middlewares:
+    swagger:
+      plugin:
+        swagger-ring:
+          path: /api/v1/docs
+          docs:
+            - path: http://auth-service:8002/api/v1/docs/swagger.yaml
+            - path: http://entity-service:8010/api/v1/docs/swagger.yaml
+
+experimental:
+  plugins:
+    swagger-ring:
+      moduleName: "github.com/usalko/swagger-ring"
+      version: "v0.1.7"
