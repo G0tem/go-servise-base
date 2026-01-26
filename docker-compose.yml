@@ -162,16 +162,6 @@ services:
   whoami:
     image: traefik/whoami
     container_name: whoami-container
-    # labels:
-    #   - "a=streaming"
-    #   - "traefik.enable=true"
-    #   - "traefik.http.routers.docs-router.rule=PathPrefix(`/api/v1/docs`)"
-    #   - "traefik.http.routers.docs-router.service=docs-service"
-    #   - "traefik.http.routers.docs-router.entrypoints=web"
-    #   - "traefik.http.routers.docs-router.middlewares=swagger"
-    #   - "traefik.http.services.docs-service.loadBalancer.server.url=http://whoami"
-    #   - "traefik.http.middlewares.swagger.plugin.swagger-ring.path=/api/v1/docs"
-    #   - "traefik.http.middlewares.swagger.plugin.swagger-ring.docs[0].path=http://auth-service:${HTTP_PORT:-8002}/api/v1/docs/swagger.yaml"
     networks:
       - local-network
 
