@@ -1,4 +1,4 @@
-# go-servise-base
+# go-service-base
 
 ## Сервисы
 
@@ -7,3 +7,4 @@
 - **RabbitMQ** (`local-message-broker`) - брокер сообщений для асинхронной обработки данных
 - **Redis** (`local-redis-server`) - кэш-сервер для временного хранения данных
 - **traefik** (`traefik` + `whoami`) - Proxy-сервер для общей документации на 8080
+- **Grafana** (`grafana`) - Сервис для отображения бордов  
