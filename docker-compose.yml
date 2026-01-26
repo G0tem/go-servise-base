@@ -113,7 +113,7 @@ services:
     # restart: unless-stopped
 
   traefik:
-    image: traefik:latest
+    image: traefik:3.6.1
     container_name: traefik-container
     restart: unless-stopped
     command:
